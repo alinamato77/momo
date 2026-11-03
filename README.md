@@ -37,7 +37,7 @@ animation (nod, hug, spin, tuck, wave, bow, dizzy spin, drop-in, hop).
 ## Spline scene
 
 - Scene: `https://prod.spline.design/GA7oYNDm83hS4Dfl/scene.splinecode`
-- Runtime: `@splinetool/runtime@2.0.125` (the scene uses file format 135; older runtimes read 133–134).
+- Runtime: `@splinetool/runtime@2.0.130` (older runtimes warn that the scene file is newer than the library).
   After re-exporting from Spline, bump this version if the console says the runtime is too old.
 - At load the page hides the flat star body and adds a puffy one built from the star's own outline
   (`src/puffy.js`), turns the star to face the camera, and swaps the light-grey eyes and mouth for

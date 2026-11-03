@@ -17,7 +17,7 @@
   --glass:rgba(255,255,255,.30); --glass-panel:rgba(255,255,255,.68); --glass-line:rgba(255,255,255,.7);
   --field:rgba(255,255,255,.55); --cloud:#ffffff; --tone:#FBDA62; --tone-ink:#17233B;
   --face:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
-  --pw:min(440px,42vw);
+  --pw:min(520px,44vw);
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --sky-top:#111833; --sky-bottom:#3A3D6A; --ink:#EEF2FB; --muted:#AFB8CF;
@@ -40,7 +40,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 /* Scene */
 .scene{position:fixed;inset:0;z-index:0}
-.scene canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;cursor:grab}
+.scene canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
 #fallback{position:absolute;inset:0;display:grid;place-items:center;padding-left:calc(var(--pw) + 48px)}
 #fallback img{width:min(320px,60%)}
 .hud{position:fixed;top:0;bottom:0;right:0;left:calc(var(--pw) + 48px);pointer-events:none;z-index:2;
@@ -71,6 +71,9 @@ button{font:inherit;color:inherit;cursor:pointer}
   box-shadow:inset 0 -3px 0 var(--tone);transition:box-shadow .4s}
 .bubble p{margin:0;text-wrap:pretty}
 .bubble.pop{animation:pop .35s ease}
+.bubble.placed{position:fixed;grid-row:auto}
+/* Face front / Follow my cursor: top left of the sky */
+.face{position:absolute;top:calc(env(safe-area-inset-top,0px) + 84px);left:24px;background:var(--glass-panel);border:1px solid var(--glass-line);font-size:14px;padding:8px 14px}
 @keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.015)}100%{transform:none}}
 
 /* Header */
@@ -143,6 +146,10 @@ select{font:inherit;font-weight:600;color:var(--ink);background:var(--field);bor
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
+@media (min-width:821px) and (max-width:1100px){
+  .board{width:220px;padding:12px 14px;gap:6px;border-radius:22px}
+  .deg{font-size:52px}.b-top svg{width:58px;height:42px}.b-note{display:none}
+}
 @media (max-width:820px){
   :root{--pw:100%}
   .scene{position:relative;height:62svh;min-height:420px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)))}
@@ -152,6 +159,7 @@ select{font:inherit;font-weight:600;color:var(--ink);background:var(--field);bor
   .board{width:auto;justify-self:end;padding:12px 14px;gap:4px;border-radius:22px}
   .deg{font-size:46px}.b-top svg{width:52px;height:38px}.b-sub,.b-note{display:none}
   .wear{min-height:0}
+  .face{top:calc(env(safe-area-inset-top,0px) + 70px);left:14px}
   .panel{width:100%;margin:12px 0 24px;padding:22px 20px 24px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -179,6 +187,7 @@ select{font:inherit;font-weight:600;color:var(--ink);background:var(--field);bor
     </section>
     <div></div>
     <div class="bubble" id="bubble" aria-live="polite"><p id="say">Hi, I’m Momo.</p></div>
+    <button class="btn face" id="face" type="button">Face front</button>
   </div>
 </div>
 
@@ -209,7 +218,7 @@ const REC={proactive:"Recommend proactively",ask:"Only when I ask"};
 const KEY="momo.prefs.v1";
 
 /* Shared with the 3D scene */
-window.MS={tone:"default",preview:null,clothes:false,acts:[]};
+window.MS={tone:"default",preview:null,clothes:false,acts:[],follow:true};
 function act(n){MS.acts.push(n)}
 function tone(k){MS.tone=k;paint()}
 function preview(k){MS.preview=k;paint()}
@@ -390,7 +399,9 @@ import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js"
 
 const host=document.getElementById("scene"),panelEl=document.getElementById("panel");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches,K=reduce?0:1;
-function fail(){const f=document.getElementById("fallback");f.hidden=false;f.innerHTML='<img src="momo-still.png" alt="Momo, a yellow star with headphones">'}
+const faceBtn=document.getElementById("face");
+faceBtn.onclick=()=>{MS.follow=!MS.follow;faceBtn.textContent=MS.follow?"Face front":"Follow my cursor"};
+function fail(){faceBtn.hidden=true;const f=document.getElementById("fallback");f.hidden=false;f.innerHTML='<img src="momo-still.png" alt="Momo, a yellow star with headphones">'}
 let R;try{R=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){fail()}
 if(R){
 R.setPixelRatio(Math.min(devicePixelRatio,2));R.outputColorSpace=THREE.SRGBColorSpace;R.toneMapping=THREE.NeutralToneMapping;R.toneMappingExposure=1;
@@ -422,6 +433,9 @@ const U=463;            // Spline units per scene unit (Momo is 2.3 units wide h
 const bodyGeo=puffyStar();
 let momo=null;          // adapter: {apply(f), hit(e)}
 const rig=new THREE.Group(),spinner=new THREE.Group();rig.add(spinner);scene.add(rig);
+// The Spline canvas reaches well past Momo, so its corner badge sits beside Momo rather than on it.
+const BOX={x:2.2,y:2.0};
+let momoAt={x:0,y:0,r:0}; // Momo's centre and radius on screen, for clicks
 
 function threeMomo(){
   const plush=new THREE.MeshPhysicalMaterial({color:NEUTRAL,roughness:.68,sheen:.6,sheenRoughness:.55,sheenColor:new THREE.Color(0xffffff)});
@@ -470,20 +484,20 @@ function splineMomo(url){
   // Momo straight from the Spline file: its own model, lighting and blink.
   // The flat body is swapped for the puffy one; tone colours switch between three bodies
   // (this runtime ignores colour changes on existing meshes).
-  const holder=document.createElement("div");holder.style.cssText="position:absolute;z-index:1;touch-action:none;cursor:grab";
+  const holder=document.createElement("div");holder.style.cssText="position:absolute;z-index:1;pointer-events:none";
   const canvas=document.createElement("canvas");canvas.style.cssText="width:100%;height:100%;display:block";canvas.setAttribute("aria-label","Momo");
   holder.appendChild(canvas);host.appendChild(holder);
   let app=null,ok=false,star,bodies={},shown="default",mouth,base={},up=new THREE.Vector3(),pulse=0;
   let shift=0; // vertical nudge in Spline units (kept for fine-tuning; 0 = centred on the camera)
   // Spline's orthographic camera spans the canvas width in CSS pixels at zoom 1, so this zoom makes
-  // the canvas show exactly the same 3.5 x 3.5 scene units as Momo's box in the sky.
+  // the canvas show exactly the same scene units as Momo's box in the sky (BOX.x either side of centre).
   const fit=()=>{if(!ok)return;const c=app._frameView&&app._frameView._camera;if(!c)return;
-    c.zoom=holder.clientWidth/(2*1.75*U);c.updateProjectionMatrix();app.requestRender()};
+    c.zoom=holder.clientWidth/(2*BOX.x*U);c.updateProjectionMatrix();app.requestRender()};
   // Spline debounces its own resize; apply the zoom after it has settled
   new ResizeObserver(()=>{setTimeout(fit,160);setTimeout(fit,600)}).observe(holder);
   const arrays=g=>({vertices:Array.from(g.attributes.position.array),normals:Array.from(g.attributes.normal.array),indices:g.index?Array.from(g.index.array):Array.from({length:g.attributes.position.count},(_,i)=>i)});
   const deg=THREE.MathUtils.radToDeg;
-  import("https://cdn.jsdelivr.net/npm/@splinetool/runtime@2.0.125/build/runtime.js").then(async({Application})=>{
+  import("https://cdn.jsdelivr.net/npm/@splinetool/runtime@2.0.130/build/runtime.js").then(async({Application})=>{
     app=new Application(canvas);await app.load(url);
     app.setBackgroundColor("transparent");
     star=app.findObjectByName("star");const old=app.findObjectByName("Star"),face=app.findObjectByName("Face");
@@ -521,11 +535,13 @@ function splineMomo(url){
     const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(camQ);up.set(0,1,0).applyQuaternion(camQ);
     const p=new THREE.Vector3(c.position.x,c.position.y,c.position.z).addScaledVector(fwd,1500);
     base={x:p.x,y:p.y,z:p.z,rx:c.rotation.x,ry:c.rotation.y-old.rotation.y,rz:c.rotation.z,ms:m.scale.x};
+    // the page turns Momo itself, so the camera must not orbit or tilt with the pointer
+    const oc=app._eventManager&&app._eventManager.controlsManager&&app._eventManager.controlsManager.orbitControls;if(oc)oc.enabled=false;
     ok=true;fit();setTimeout(fit,300);window.momoReady=true;
   }).catch(e=>{console.error(e);fail()});
   return{
     ready:()=>ok,box:holder,fit,
-    hit:()=>false,
+    hit:(ray,e)=>Math.hypot(e.clientX-momoAt.x,e.clientY-momoAt.y)<momoAt.r,
     apply(f){if(!ok)return;
       if(f.tone!==shown){bodies[shown].hide();bodies[f.tone].show();shown=f.tone;pulse=1}
       pulse=Math.max(0,pulse-.08);const pz=1+Math.sin(pulse*Math.PI)*.06;
@@ -571,28 +587,49 @@ function themeSync(){const c=getComputedStyle(document.documentElement).getPrope
 themeSync();matchMedia("(prefers-color-scheme: dark)").addEventListener("change",themeSync);
 new MutationObserver(themeSync).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
-/* ---- Layout: keep Momo centred in the open sky beside the panel ---- */
+/* ---- Layout: Momo in the open sky beside the panel, clear of the weather board, speech bubble underneath ---- */
+const boardEl=document.getElementById("board"),bubbleEl=document.getElementById("bubble");
+let momoCx=0;
 function size(){const W=host.clientWidth,H=host.clientHeight;R.setSize(W,H,false);
-  const desk=innerWidth>820;const pr=desk?panelEl.getBoundingClientRect().right:0;const vw=W-pr;
-  cam.aspect=W/H;const needW=desk?6.2:5.6,needH=desk?4.8:4.2;const t=Math.tan(THREE.MathUtils.degToRad(cam.fov/2));
-  cam.position.z=Math.max(needH/2/t,needW/2/(t*(vw/H)));
-  if(desk)cam.setViewOffset(W,H,-pr/2,H*.04,W,H);else cam.setViewOffset(W,H,0,-H*.15,W,H);
+  const desk=innerWidth>820,t=Math.tan(THREE.MathUtils.degToRad(cam.fov/2));cam.aspect=W/H;
+  if(desk){
+    // k = pixels per scene unit. Momo's star (with headphones) is about 2.6 units wide, its top is at y 1.6
+    // and the clothes reach down to y -1.55, where the bubble starts.
+    const pr=panelEl.getBoundingClientRect().right,L=pr+24,Rt=W-24,top=84,bot=H-48,G=16;
+    const b=boardEl.getBoundingClientRect(),bb=b.bottom+(boardEl.hasAttribute("data-off")?10:0);
+    const bh=Math.max(bubbleEl.offsetHeight,104),k0=Math.min(H/4.8,(W-pr)/6.2);
+    let T=top,k,cx,starTop;
+    for(let i=0;i<2;i++){
+      k=Math.min(k0,(bot-T-bh)/3.15);starTop=T+(bot-T-3.15*k-bh)/2;cx=(L+Rt)/2;const half=1.3*k;
+      if(starTop<bb+G&&b.left<cx+half+G){const cxl=b.left-G-half;if(cxl-half>=L)cx=cxl;else{T=bb+G;continue}}
+      break}
+    const cy=starTop+1.15*k;momoCx=cx;
+    cam.position.z=H/(2*t*k);cam.setViewOffset(W,H,W/2-cx,H/2-.45*k-cy,W,H);
+    const bw=Math.min(440,Rt-L);bubbleEl.classList.add("placed");
+    Object.assign(bubbleEl.style,{width:bw+"px",left:Math.max(L,Math.min(Rt-bw,cx-bw/2))+"px",top:(cy+2*k)+"px"});
+  }else{
+    const needW=5.6,needH=4.2;momoCx=W/2;
+    cam.position.z=Math.max(needH/2/t,needW/2/(t*cam.aspect));cam.setViewOffset(W,H,0,-H*.15,W,H);
+    bubbleEl.classList.remove("placed");bubbleEl.style.cssText="";
+  }
   cam.updateProjectionMatrix();
+  {const v=new THREE.Vector3(),pt=(x,y)=>{v.set(x,y,0).project(cam);return[(v.x+1)/2*W,(1-v.y)/2*H]};
+    const [mx,my]=pt(0,.45),[ex]=pt(1.15,.45);const r=host.getBoundingClientRect();momoAt={x:mx+r.left,y:my+r.top,r:ex-mx}}
   if(momo&&momo.box){const v=new THREE.Vector3(),pt=(x,y)=>{v.set(x,y,0).project(cam);return[(v.x+1)/2*W,(1-v.y)/2*H]};
-    const [x0,y0]=pt(-1.75,.45+1.75),[x1,y1]=pt(1.75,.45-1.75);
+    const [x0,y0]=pt(-BOX.x,.45+BOX.y),[x1,y1]=pt(BOX.x,.45-BOX.y);
     Object.assign(momo.box.style,{left:x0+"px",top:y0+"px",width:(x1-x0)+"px",height:(y1-y0)+"px"});setTimeout(momo.fit,60)}}
 new ResizeObserver(size).observe(host);addEventListener("resize",size);size();
+if(document.fonts)document.fonts.ready.then(size);
 
 /* ---- Interaction ---- */
 const ptr=new THREE.Vector2(),cl=v=>Math.max(-1,Math.min(1,v));
 addEventListener("pointermove",e=>{const r=host.getBoundingClientRect();const pr=innerWidth>820?panelEl.getBoundingClientRect().right:0;
-  ptr.x=cl((e.clientX-(pr+(r.width-pr)/2))/((r.width-pr)/2));ptr.y=cl((e.clientY-r.height*.45)/(r.height*.5))});
+  ptr.x=cl((e.clientX-momoCx)/((r.width-pr)/2));ptr.y=cl((e.clientY-r.height*.45)/(r.height*.5))});
 const ray=new THREE.Raycaster();
 const poke=()=>MS.acts.push(MS.tone==="soft"?"hug":MS.tone==="cold"?"nod":"hop");
-if(momo.box)momo.box.addEventListener("pointerdown",poke);
 R.domElement.addEventListener("pointerdown",e=>{const r=R.domElement.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),cam);
-  if(momo.hit(ray)){poke();return}
+  if(momo.hit(ray,e)){poke();return}
   for(const w of wearItems){if(ray.intersectObject(w.o,true).length){w.v+=.12;w.twirl=1}}});
 
 /* ---- Animation ---- */
@@ -638,11 +675,13 @@ R.setAnimationLoop(()=>{
       case"think":rz+=Math.sin(p*Math.PI*2)*.14;ry+=Math.sin(p*Math.PI)*.25;break;
       case"lean":rz+=s*.1*(MS.preview==="soft"?1:-1);sy*=1+s*.03;break}
     if(p>=1)cur=null}
-  F.y=y;F.rx+=((ptr.y*.16+rx)-F.rx)*.12;F.ry0+=((ptr.x*.28)-F.ry0)*.08;F.rz+=(rz-F.rz)*.15;F.ry=ry*K;F.sx=sx;F.sy=sy;
+  F.y=y;// follow: only a slight turn toward the cursor, never a tilt
+  const fx=MS.follow?ptr.x:0,fy=MS.follow?ptr.y:0;
+  F.rx+=(rx-F.rx)*.12;F.ry0+=((fx*.22)-F.ry0)*.08;F.rz+=(rz-F.rz)*.15;F.ry=ry*K;F.sx=sx;F.sy=sy;
   F.ring=[Math.sin(t*1.4)*.1*K+ringSpin,Math.sin(t*1.4+1)*.1*K+ringSpin];
   // the Spline blink: every 2s the eyes dip and squash over 0.6s
   const bp=t%2.0,bw=bp>1.4?(bp-1.4)/.6:0;const ba=bw<=0?0:bw<.65?Math.sin(bw/.65*Math.PI/2):Math.cos((bw-.65)/.35*Math.PI/2);
-  F.blink=1-ba*.93;F.dip=ba*12;eyeS+=(eyeT-eyeS)*.12;F.eyeS=eyeS;F.eyeW=eyeW;F.px=ptr.x;F.py=ptr.y;
+  F.blink=1-ba*.93;F.dip=ba*12;eyeS+=(eyeT-eyeS)*.12;F.eyeS=eyeS;F.eyeW=eyeW;F.px=fx;F.py=fy;
   F.mouth+=((tk==="soft"?1.35:tk==="cold"?.75:1)-F.mouth)*.1;
   momo.apply(F);
 });
