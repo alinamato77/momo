@@ -1,0 +1,642 @@
+<title>Momo Onboarding</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&display=swap">
+<style>
+/* Layout: a live sky fills the screen; Momo floats in it with 3D clothing beside it.
+   One glass panel on the left holds the onboarding; a half-clear glass weather board hangs in the sky.
+   Momo's color is the accent: yellow (default), orange (soft), yellow-green (rational). */
+:root{
+  --sky-top:#78ACE3; --sky-bottom:#DDEAF8; --ink:#17233B; --muted:#4A5770;
+  --glass:rgba(255,255,255,.30); --glass-panel:rgba(255,255,255,.68); --glass-line:rgba(255,255,255,.7);
+  --field:rgba(255,255,255,.55); --cloud:#ffffff; --tone:#FBDA62; --tone-ink:#17233B;
+  --face:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --pw:min(440px,42vw);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --sky-top:#111833; --sky-bottom:#3A3D6A; --ink:#EEF2FB; --muted:#AFB8CF;
+  --glass:rgba(24,30,56,.30); --glass-panel:rgba(20,26,48,.74); --glass-line:rgba(255,255,255,.16);
+  --field:rgba(255,255,255,.08); --cloud:#9AA2C6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky-top:#111833; --sky-bottom:#3A3D6A; --ink:#EEF2FB; --muted:#AFB8CF;
+  --glass:rgba(24,30,56,.30); --glass-panel:rgba(20,26,48,.74); --glass-line:rgba(255,255,255,.16);
+  --field:rgba(255,255,255,.08); --cloud:#9AA2C6; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:linear-gradient(180deg,var(--sky-top),var(--sky-bottom)) fixed;color:var(--ink);font:16px/1.5 var(--face);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+
+.glass{background:var(--glass);border:1px solid var(--glass-line);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4)}
+
+/* Scene */
+.scene{position:fixed;inset:0;z-index:0}
+.scene canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block;cursor:grab}
+#fallback{position:absolute;inset:0;display:grid;place-items:center;padding-left:calc(var(--pw) + 48px)}
+#fallback img{width:min(320px,60%)}
+.hud{position:fixed;top:0;bottom:0;right:0;left:calc(var(--pw) + 48px);pointer-events:none;z-index:2;
+  padding:calc(env(safe-area-inset-top,0px) + 84px) max(24px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) 24px;
+  display:grid;grid-template-rows:auto 1fr auto;justify-items:center}
+.hud > *{pointer-events:auto}
+
+/* Weather board */
+.board{justify-self:end;width:min(300px,100%);border-radius:28px;padding:18px 20px 16px;display:grid;gap:10px;
+  transition:opacity .4s,transform .4s}
+.board[data-off]{opacity:0;transform:translateY(-10px);pointer-events:none}
+.b-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.deg{font-weight:300;font-size:76px;line-height:.9;letter-spacing:-.04em;font-variation-settings:"opsz" 96;font-variant-numeric:tabular-nums}
+.b-top svg{width:84px;height:60px;flex:none}
+.b-row{display:flex;align-items:center;gap:10px;font-weight:600}
+.wind{display:inline-grid;gap:3px;width:34px}
+.wind i{display:block;height:2px;border-radius:2px;background:currentColor;animation:gust 1.6s ease-in-out infinite}
+.wind i:nth-child(2){width:70%;animation-delay:.2s}.wind i:nth-child(3){width:85%;animation-delay:.4s}
+@keyframes gust{0%,100%{transform:translateX(0);opacity:.5}50%{transform:translateX(6px);opacity:1}}
+.b-sub{color:var(--muted);font-size:15px}
+.wear{display:flex;flex-wrap:wrap;gap:6px;min-height:36px;align-items:center}
+.chip{background:var(--field);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:600}
+.b-note{margin:0;font-size:12px;color:var(--muted)}
+
+/* Speech */
+.bubble{grid-row:3;max-width:440px;width:100%;border-radius:22px;padding:14px 18px;background:var(--glass-panel);
+  border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:inset 0 -3px 0 var(--tone);transition:box-shadow .4s}
+.bubble p{margin:0;text-wrap:pretty}
+.bubble.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.015)}100%{transform:none}}
+
+/* Header */
+.top{position:fixed;z-index:3;top:env(safe-area-inset-top,0px);left:0;right:0;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:18px max(24px,env(safe-area-inset-right,0px)) 0 max(24px,env(safe-area-inset-left,0px));pointer-events:none}
+.top > *{pointer-events:auto}
+.brand{font-weight:800;font-size:28px;letter-spacing:-.02em;font-stretch:85%;display:flex;align-items:center;gap:8px}
+.brand i{width:14px;height:14px;border-radius:4px;background:var(--tone);transform:rotate(45deg);transition:background .4s}
+.btn{border:0;border-radius:999px;padding:10px 18px;font-weight:600;font-size:15px;background:var(--field);transition:background .2s,transform .15s}
+.btn:hover{background:var(--glass-panel)}
+.btn.go{background:var(--tone);color:var(--tone-ink);transition:background .4s,transform .15s}
+.btn.go:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.link{background:transparent;padding-inline:8px;color:var(--muted)}
+.btn.link:hover{color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* Panel */
+.panel{position:relative;z-index:2;width:var(--pw);margin:calc(env(safe-area-inset-top,0px) + 80px) 0 32px 8px;
+  border-radius:30px;padding:26px 28px 28px;background:var(--glass-panel)}
+.progress{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;margin-bottom:18px}
+.progress span{display:flex;gap:5px}
+.progress b{width:18px;height:6px;border-radius:3px;background:var(--field);transition:background .3s,width .3s}
+.progress b.on{width:30px;background:var(--tone)}
+.progress b.done{background:var(--ink);opacity:.5}
+h1{margin:0;font-weight:700;font-size:clamp(30px,3vw,38px);line-height:1.05;letter-spacing:-.02em;font-stretch:88%;text-wrap:balance}
+h2{margin:0;font-weight:700;font-size:20px;letter-spacing:-.01em}
+.lead{margin:10px 0 22px;color:var(--muted);max-width:52ch}
+.said{font-size:17px;margin:0 0 14px}
+.said em{font-style:normal;color:var(--muted)}
+.stack{display:grid;gap:18px}
+
+/* Minimal selection boxes */
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choices.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.choices.three .box{padding-inline:8px}
+.box{border:2px solid transparent;background:var(--field);border-radius:18px;padding:18px 14px;font-weight:600;font-size:17px;text-align:center;
+  transition:background .25s,border-color .25s,transform .15s}
+.box:hover{transform:translateY(-2px)}
+.box[aria-checked="true"],.box:has(input:checked){border-color:var(--tone);background:color-mix(in srgb,var(--tone) 30%,var(--field))}
+label.box{display:block;cursor:pointer}
+label.box input{position:absolute;opacity:0;pointer-events:none}
+label.box:has(input:focus-visible){outline:3px solid var(--ink);outline-offset:2px}
+fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:10px}
+legend{font-weight:700;font-size:19px;padding:0;margin-bottom:10px;letter-spacing:-.01em}
+.note{margin:0;color:var(--muted);font-size:15px}
+.versions{display:grid;gap:10px}
+.ver{border-radius:18px;padding:14px 16px;background:var(--field)}
+.ver.now{background:color-mix(in srgb,var(--tone) 26%,var(--field))}
+.ver h2{font-size:15px;color:var(--muted);font-weight:600}
+.ver p{margin:4px 0 0}
+.keep{border-radius:18px;padding:14px 16px;border:1.5px dashed color-mix(in srgb,var(--ink) 30%,transparent)}
+.keep ul{margin:6px 0 0;padding-left:18px}
+.keep p{margin:6px 0 0}
+.next{display:flex;justify-content:space-between;gap:10px;margin-top:24px;flex-wrap:wrap}
+dl.mem{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 16px;margin:0;align-items:center}
+dl.mem dt{color:var(--muted);font-size:15px}
+dl.mem dd{margin:0;min-width:0}
+select{font:inherit;font-weight:600;color:var(--ink);background:var(--field);border:0;border-radius:12px;padding:8px 12px;max-width:100%}
+.status{display:inline-flex;align-items:center;gap:8px}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.status[data-s="saved"] i{background:#2E9E6A}
+.status[data-s="session"] i{background:var(--tone);box-shadow:0 0 0 2px color-mix(in srgb,var(--ink) 25%,transparent)}
+.confirm{border-radius:18px;padding:14px 16px;background:var(--field)}
+.confirm p{margin:0 0 10px}
+.view{animation:in .3s ease both}
+@keyframes in{from{opacity:.001;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.toast{position:fixed;z-index:9;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);opacity:0;
+  background:var(--ink);color:var(--sky-bottom);padding:10px 18px;border-radius:999px;font-weight:600;font-size:14px;transition:.25s;pointer-events:none;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+@media (max-width:820px){
+  :root{--pw:100%}
+  .scene{position:relative;height:62svh;min-height:420px;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)))}
+  .top{position:absolute}
+  .hud{position:absolute;left:0;padding:calc(env(safe-area-inset-top,0px) + 70px) 14px 14px;grid-template-rows:auto 1fr auto}
+  #fallback{padding-left:0}
+  .board{width:auto;justify-self:end;padding:12px 14px;gap:4px;border-radius:22px}
+  .deg{font-size:46px}.b-top svg{width:52px;height:38px}.b-sub,.b-note{display:none}
+  .wear{min-height:0}
+  .panel{width:100%;margin:12px 0 24px;padding:22px 20px 24px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand"><i aria-hidden="true"></i>Momo</div>
+  <div class="row"><button class="btn link" id="restart" type="button">Start over</button><button class="btn" id="open-memory" type="button">My Memory</button></div>
+</header>
+
+<div class="scene" id="scene">
+  <div id="fallback" hidden></div>
+  <div class="hud">
+    <section class="board glass" id="board" aria-label="Today's weather (demo)" data-off>
+      <div class="b-top">
+        <div class="deg">16°</div>
+        <svg viewBox="0 0 84 60" aria-hidden="true"><path d="M22 50h44a14 14 0 0 0 1-28 20 20 0 0 0-38-4 15 15 0 0 0-7 32z" fill="var(--cloud)" opacity=".95"/><path d="M14 40h30a10 10 0 0 0 0-20 13 13 0 0 0-25 3 9 9 0 0 0-5 17z" fill="var(--cloud)" opacity=".7"/></svg>
+      </div>
+      <div class="b-row"><span class="wind" aria-hidden="true"><i></i><i></i><i></i></span>Windy, 28 km/h</div>
+      <div class="b-sub">Cloudy. Rain possible this evening.</div>
+      <div class="wear" id="wear"></div>
+      <p class="b-note">Demo weather, not your location</p>
+    </section>
+    <div></div>
+    <div class="bubble" id="bubble" aria-live="polite"><p id="say">Hi, I’m Momo.</p></div>
+  </div>
+</div>
+
+<main class="panel glass" id="panel"></main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ---------- Content ---------- */
+const STYLES={cold:"Tough",default:"Neutral",soft:"Soft"};
+const TONE={default:"#FBDA62",soft:"#FF8C3A",cold:"#AFCB2E"};
+const SAMPLE={
+  cold:"Block 90 minutes tonight. Finish the slides first, then rehearse twice. Sleep by 11.",
+  default:"That’s tight, but doable. Finish your slides tonight, do one run-through, and get a good night’s sleep.",
+  soft:"That sounds stressful, and it’s okay to feel behind. Let’s take it one piece at a time: slides first, then a couple of gentle run-throughs. You’ve got this."
+};
+const WEATHER={
+  default:"It’s 16°C and windy, with possible evening rain. Wear a windproof jacket and bring an umbrella.",
+  cold:"16°C. Windy. Wear a windproof jacket. Bring an umbrella for possible evening rain.",
+  soft:"It’s a little chilly today—a windproof jacket should help you feel comfortable. Tuck an umbrella into your bag for possible evening rain, too."
+};
+const WHY={
+  cold:"You chose a more direct response, so I shortened my wording. The weather information and clothing advice stayed the same.",
+  soft:"You chose a warmer response, so I adjusted my wording. The weather information and clothing advice stayed the same.",
+  default:"You chose neutral, so I’ll keep my standard wording. The weather information and clothing advice are the same in every style."
+};
+const ACT={cold:"nod",default:"hop",soft:"hug"};
+const REC={proactive:"Recommend proactively",ask:"Only when I ask"};
+const KEY="momo.prefs.v1";
+
+/* Shared with the 3D scene */
+window.MS={tone:"default",preview:null,clothes:false,acts:[]};
+function act(n){MS.acts.push(n)}
+function tone(k){MS.tone=k;paint()}
+function preview(k){MS.preview=k;paint()}
+function paint(){document.documentElement.style.setProperty("--tone",TONE[MS.preview||MS.tone])}
+function clothes(on){MS.clothes=on;const w=$("#wear");w.innerHTML=on?`<span class="chip">Windproof jacket</span><span class="chip">Umbrella</span>`:""}
+function board(on,askBtn){const b=$("#board");if(on)b.removeAttribute("data-off");else b.setAttribute("data-off","");
+  if(askBtn){$("#wear").innerHTML=`<button class="btn go" id="ask" type="button">What should I wear?</button>`;$("#ask").onclick=askWear}}
+
+/* ---------- State ---------- */
+const S={step:1,chosen:null,applied:"default",remember:null,rec:null,view:"onboarding",confirmClear:false,asked:false,fromOnb:true,
+  live:{style:"default",rec:"ask",status:"none",source:null}};
+function load(){try{const v=JSON.parse(localStorage.getItem(KEY)||"null");if(v&&STYLES[v.style]&&REC[v.rec])return v}catch(e){}return null}
+function save(v){try{localStorage.setItem(KEY,JSON.stringify(v));return true}catch(e){return false}}
+function wipe(){try{localStorage.removeItem(KEY)}catch(e){}}
+
+const $=s=>document.querySelector(s);
+const panel=$("#panel");
+let sayLock=0;
+function say(t){const p=$("#say");if(p.textContent===t)return;p.textContent=t;const b=$("#bubble");b.classList.remove("pop");void b.offsetWidth;b.classList.add("pop")}
+function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),2200)}
+const fmt=iso=>{try{return new Date(iso).toLocaleDateString(undefined,{month:"short",day:"numeric"})}catch(e){return""}};
+function progress(n){return `<div class="progress"><span aria-hidden="true">${[1,2,3,4].map(i=>`<b class="${i===n?"on":i<n?"done":""}"></b>`).join("")}</span>${n<4?`Step ${n} of 4`:"All set"}</div>`}
+
+/* ---------- Step 1: pick a style ---------- */
+function step1(){
+  board(false);clothes(false);
+  panel.innerHTML=`<div class="view">${progress(1)}
+  <h1>How should I talk to you?</h1>
+  <p class="lead">Point at a style to hear how I’d answer. Pick the one that feels right.</p>
+  <p class="said"><em>You say:</em> “I have a presentation tomorrow and I’m not ready.”</p>
+  <div class="choices three" role="radiogroup" aria-label="Response style">
+    ${["cold","default","soft"].map(k=>`<button type="button" class="box" role="radio" id="opt-${k}" data-k="${k}" aria-checked="${S.chosen===k}">${STYLES[k]}</button>`).join("")}
+  </div>
+  ${S.chosen?`<p class="note" style="margin-top:16px">We’ll try this style for now. Nothing is saved yet, and you can change your choice anytime.</p>`:""}
+  <div class="next"><span></span><button class="btn go" id="next1" type="button" ${S.chosen?"":"disabled"}>Continue</button></div></div>`;
+  panel.querySelectorAll(".box").forEach(b=>{
+    const k=b.dataset.k;
+    const hear=()=>{preview(k);act("lean");say(SAMPLE[k])};
+    b.onpointerenter=hear;b.onfocus=hear;
+    b.onpointerleave=()=>{preview(null);if(S.chosen)say(SAMPLE[S.chosen])};
+    b.onblur=()=>preview(null);
+    b.onclick=()=>{S.chosen=k;S.applied=k;tone(k);preview(null);act(ACT[k]);step1();say(SAMPLE[k]);$("#opt-"+k).focus()};
+  });
+  $("#next1").onclick=()=>{S.step=2;render();act("hop");say(WHY[S.applied])};
+}
+
+/* ---------- Step 2: see what changed ---------- */
+function step2(){
+  board(true);clothes(true);
+  const neutral=S.chosen==="default";
+  const undone=!neutral&&S.applied==="default";
+  const others=["cold","default","soft"].filter(k=>k!==S.chosen&&(neutral||k!=="default"));
+  panel.innerHTML=`<div class="view">${progress(2)}
+  <h1>${neutral?"Here’s my standard advice":"Same advice, in your words"}</h1>
+  <p class="lead">${neutral?"This is how I’ll word today’s clothing advice. Try another style to compare.":"I rewrote today’s clothing advice. The weather and what to wear stay the same."}</p>
+  <div class="versions">
+    ${neutral?`<div class="ver now"><h2>Neutral</h2><p>${WEATHER.default}</p></div>`
+    :`<div class="ver"><h2>Neutral</h2><p>${WEATHER.default}</p></div>
+    <div class="ver now"><h2>${undone?"Neutral (change undone)":STYLES[S.applied]}</h2><p>${WEATHER[S.applied]}</p></div>`}
+  </div>
+  <div class="row" style="margin-top:16px">
+    ${neutral?"":undone?`<button class="btn" id="redo" type="button">Use ${STYLES[S.chosen]} again</button>`:`<button class="btn" id="undo" type="button">Undo this change</button>`}
+    ${others.map(k=>`<button class="btn link" data-try="${k}" type="button">Try ${STYLES[k]}</button>`).join("")}
+  </div>
+  <div class="next"><button class="btn link" id="back2" type="button">Back</button><button class="btn go" id="next2" type="button">Continue</button></div></div>`;
+  $("#undo")&&($("#undo").onclick=()=>{S.applied="default";tone("default");act("spin");say("Done. This is my default response again.");step2();$("#redo").focus()});
+  $("#redo")&&($("#redo").onclick=()=>{S.applied=S.chosen;tone(S.chosen);act(ACT[S.chosen]);say(WHY[S.applied]);step2();$("#undo").focus()});
+  panel.querySelectorAll("[data-try]").forEach(b=>b.onclick=()=>{const k=b.dataset.try;S.chosen=k;S.applied=k;tone(k);act("spin");say(WHY[k]);step2()});
+  $("#back2").onclick=()=>{S.step=1;render()};
+  $("#next2").onclick=()=>{S.step=3;render();act("think");say("Two quick choices. Nothing is picked for you.")};
+}
+
+/* ---------- Step 3: memory + recommendations ---------- */
+function step3(){
+  board(true);clothes(S.rec==="proactive");
+  const ready=S.remember&&S.rec,name=STYLES[S.applied];
+  let keep;
+  if(!ready) keep=`<p class="note">Make both choices to see exactly what I’ll keep.</p>`;
+  else if(S.remember==="saved") keep=`<ul><li>Response style: <b>${name}</b></li><li>Clothing advice: <b>${REC[S.rec]}</b></li></ul><p class="note">Saved in this browser on this device.</p>`;
+  else keep=`<p><b>Nothing will be saved.</b> ${name} and “${REC[S.rec]}” last for this visit only.</p>`;
+  panel.innerHTML=`<div class="view">${progress(3)}
+  <h1>You decide what I keep</h1>
+  <div class="stack" style="margin-top:22px">
+    <fieldset><legend>Remember this style?</legend>
+      <div class="choices">
+        <label class="box"><input type="radio" name="remember" id="rem-session" value="session" ${S.remember==="session"?"checked":""}>Just this time</label>
+        <label class="box"><input type="radio" name="remember" id="rem-saved" value="saved" ${S.remember==="saved"?"checked":""}>Remember for next time</label>
+      </div></fieldset>
+    <fieldset><legend>Suggest what to wear?</legend>
+      <div class="choices">
+        <label class="box"><input type="radio" name="rec" id="rec-proactive" value="proactive" ${S.rec==="proactive"?"checked":""}>Recommend proactively</label>
+        <label class="box"><input type="radio" name="rec" id="rec-ask" value="ask" ${S.rec==="ask"?"checked":""}>Only when I ask</label>
+      </div></fieldset>
+    <div class="keep" aria-live="polite"><h2>What I’ll remember</h2>${keep}</div>
+  </div>
+  <div class="next"><button class="btn link" id="back3" type="button">Back</button>
+    <button class="btn go" id="finish" type="button" ${ready?"":"disabled"}>${S.remember==="saved"?"Save and finish":"Finish"}</button></div></div>`;
+  panel.querySelectorAll("input[name=remember]").forEach(i=>i.onchange=()=>{S.remember=i.value;
+    if(i.value==="saved"){act("tuck");say("I’ll keep it safe for next time.")}else{act("wave");say("Just for today, then.")}
+    step3();$("#"+i.id).focus()});
+  panel.querySelectorAll("input[name=rec]").forEach(i=>i.onchange=()=>{S.rec=i.value;
+    if(i.value==="proactive"){act("present");say("I’ll show what to wear whenever you check the weather.")}else{act("bow");say("I’ll wait until you ask.")}
+    step3();$("#"+i.id).focus()});
+  $("#back3").onclick=()=>{S.step=2;render()};
+  $("#finish").onclick=()=>{
+    const src="Your onboarding choices",now=new Date().toISOString();
+    if(S.remember==="saved"){const ok=save({style:S.applied,rec:S.rec,savedAt:now,source:src});
+      S.live={style:S.applied,rec:S.rec,status:ok?"saved":"session",source:src,savedAt:now};toast(ok?"Saved in this browser":"This browser blocks saving, so it’s kept for this visit")}
+    else{wipe();S.live={style:S.applied,rec:S.rec,status:"session",source:src};toast("Set for this visit")}
+    S.view="home";S.asked=false;S.fromOnb=true;render();act("cheer");
+    say(S.live.rec==="proactive"?WEATHER[S.live.style]:"All set. Tap “What should I wear?” whenever you need me.");
+  };
+}
+
+/* ---------- Home: weather + My Memory ---------- */
+function askWear(){S.asked=true;act("present");clothes(true);say(WEATHER[S.live.style])}
+function home(){
+  const L=S.live;tone(L.style);
+  const showWear=L.rec==="proactive"||S.asked;
+  board(true,!showWear);if(showWear)clothes(true);else MS.clothes=false;
+  const statusText=L.status==="saved"?`Saved in this browser${L.savedAt?" on "+fmt(L.savedAt):""}`:L.status==="session"?"Temporary, for this visit only":"Nothing saved. Using defaults.";
+  panel.innerHTML=`<div class="view">${S.fromOnb?progress(4):""}
+  <h1 id="memory" tabindex="-1">My Memory</h1>
+  <p class="lead">Everything I know about how you like help. Change it anytime.</p>
+  <dl class="mem">
+    <dt><label for="m-style">Response style</label></dt>
+    <dd><select id="m-style">${Object.keys(STYLES).map(k=>`<option value="${k}" ${L.style===k?"selected":""}>${STYLES[k]}</option>`).join("")}</select></dd>
+    <dt><label for="m-rec">Clothing advice</label></dt>
+    <dd><select id="m-rec">${Object.keys(REC).map(k=>`<option value="${k}" ${L.rec===k?"selected":""}>${REC[k]}</option>`).join("")}</select></dd>
+    <dt>Status</dt><dd><span class="status" data-s="${L.status}"><i aria-hidden="true"></i>${statusText}</span></dd>
+    <dt>Came from</dt><dd>${L.source||"My defaults"}</dd>
+  </dl>
+  <div class="row" style="margin-top:20px">
+    ${L.status==="session"?`<button class="btn" id="keepit" type="button">Remember for next time</button>`:""}
+    ${L.status!=="none"?`<button class="btn" id="clear" type="button">Clear all preferences</button>`:""}
+    <button class="btn link" id="nextvisit" type="button">Simulate next visit</button>
+  </div>
+  ${S.confirmClear?`<div class="confirm" style="margin-top:14px"><p>Clear everything I remember? I’ll go back to Neutral and “Only when I ask”, and your old choices won’t come back next visit.</p>
+    <div class="row"><button class="btn go" id="clear-yes" type="button">Clear memory</button><button class="btn link" id="clear-no" type="button">Cancel</button></div></div>`:""}
+  </div>`;
+  const persist=()=>{if(L.status==="saved"){L.savedAt=new Date().toISOString();save({style:L.style,rec:L.rec,savedAt:L.savedAt,source:L.source})}};
+  $("#m-style").onchange=e=>{L.style=e.target.value;if(L.status==="none")L.status="session";L.source="Changed in My Memory";persist();
+    act(L.style==="soft"?"hug":L.style==="cold"?"nod":"spin");home();$("#m-style").focus();say(WEATHER[L.style]);toast("Response style updated")};
+  $("#m-rec").onchange=e=>{L.rec=e.target.value;if(L.status==="none")L.status="session";L.source="Changed in My Memory";S.asked=false;persist();
+    act(L.rec==="proactive"?"present":"bow");home();$("#m-rec").focus();toast("Clothing advice updated");if(L.rec==="proactive")say(WEATHER[L.style])};
+  $("#keepit")&&($("#keepit").onclick=()=>{L.savedAt=new Date().toISOString();if(save({style:L.style,rec:L.rec,savedAt:L.savedAt,source:L.source})){L.status="saved";act("tuck");toast("Saved in this browser")}else toast("This browser blocks saving");home()});
+  $("#clear")&&($("#clear").onclick=()=>{S.confirmClear=true;act("think");home();$("#clear-yes").focus()});
+  $("#clear-no")&&($("#clear-no").onclick=()=>{S.confirmClear=false;home()});
+  $("#clear-yes")&&($("#clear-yes").onclick=()=>{wipe();S.live={style:"default",rec:"ask",status:"none",source:null};S.confirmClear=false;S.asked=false;
+    act("dizzy");home();toast("Memory cleared");say("Memory cleared. I’m back to my neutral style, and I’ll only suggest clothes when you ask.")});
+  $("#nextvisit").onclick=()=>{const v=load();S.asked=false;S.confirmClear=false;S.fromOnb=false;
+    S.live=v?{style:v.style,rec:v.rec,status:"saved",source:v.source||"Your onboarding choices",savedAt:v.savedAt}:{style:"default",rec:"ask",status:"none",source:null};
+    act("drop");home();toast("New visit: only saved preferences came along");
+    say(v?(v.rec==="proactive"?WEATHER[v.style]:v.style==="soft"?"Welcome back. It’s good to see you.":"Welcome back."):"Welcome back. I haven’t saved anything for you, so I’m using my defaults.")};
+}
+
+function render(){if(S.view==="home")home();else({1:step1,2:step2,3:step3})[S.step]()}
+$("#restart").onclick=()=>{Object.assign(S,{step:1,chosen:null,applied:"default",remember:null,rec:null,view:"onboarding",confirmClear:false,fromOnb:true});tone("default");act("drop");render();
+  say("Hi, I’m Momo. I can talk to you in different ways, and nothing is saved until you say so.")};
+$("#open-memory").onclick=()=>{if(S.view!=="home"){S.view="home";S.fromOnb=false;
+    if(S.live.status==="none"&&S.applied!=="default")S.live={style:S.applied,rec:S.rec||"ask",status:"session",source:"Your onboarding choices"}}
+  render();$("#memory").focus()};
+
+(function boot(){const v=load();
+  if(v){S.view="home";S.fromOnb=false;S.live={style:v.style,rec:v.rec,status:"saved",source:v.source||"Your onboarding choices",savedAt:v.savedAt};render();
+    say(v.rec==="proactive"?WEATHER[v.style]:"Welcome back. I remembered your settings. They’re all in My Memory.")}
+  else{render();say("Hi, I’m Momo. I can talk to you in different ways, and nothing is saved until you say so.")}
+})();
+</script>
+
+<script src="puffy.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {RoomEnvironment} from "three/addons/environments/RoomEnvironment.js";
+import {RoundedBoxGeometry} from "three/addons/geometries/RoundedBoxGeometry.js";
+
+const host=document.getElementById("scene"),panelEl=document.getElementById("panel");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches,K=reduce?0:1;
+function fail(){const f=document.getElementById("fallback");f.hidden=false;f.innerHTML='<img src="momo-still.png" alt="Momo, a yellow star with headphones">'}
+let R;try{R=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){fail()}
+if(R){
+R.setPixelRatio(Math.min(devicePixelRatio,2));R.outputColorSpace=THREE.SRGBColorSpace;R.toneMapping=THREE.NeutralToneMapping;R.toneMappingExposure=1;
+host.prepend(R.domElement);
+const scene=new THREE.Scene();
+scene.environment=new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(),.04).texture;
+scene.add(new THREE.HemisphereLight(0xfff6e0,0x6b84b8,1.1));
+const sun=new THREE.DirectionalLight(0xfff1d6,2);sun.position.set(3,4,5);scene.add(sun);
+const rim=new THREE.DirectionalLight(0xbfd7ff,1.2);rim.position.set(-4,2,-3);scene.add(rim);
+const cam=new THREE.PerspectiveCamera(32,1,.1,100);cam.position.set(0,0,9);
+
+/* ---- Clouds ---- */
+const cloudMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,transparent:true,opacity:.92});
+const puff=new THREE.SphereGeometry(1,24,16);
+const clouds=[];
+function cloud(x,y,z,s){const g=new THREE.Group();const n=4+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){const m=new THREE.Mesh(puff,cloudMat);const r=.35+Math.random()*.35;m.scale.set(r*1.15,r,r);m.position.set((i-(n-1)/2)*.5+Math.random()*.15,Math.sin(i/(n-1)*Math.PI)*.28+Math.random()*.1,Math.random()*.2);g.add(m)}
+  g.position.set(x,y,z);g.scale.setScalar(s);g.userData.v=.25+Math.random()*.25;scene.add(g);clouds.push(g)}
+[[-6,2.6,-6,1.3],[-1.5,3.2,-8,1.6],[4,2.4,-5,1.1],[7,1,-7,1.4],[-4.5,-1.8,-6,1],[2.5,-2.4,-7,1.3],[8.5,3.4,-9,1.7],[-8,.4,-8,1.2]].forEach(a=>cloud(...a));
+
+/* ---- Wind streaks ---- */
+const streakMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.0,depthWrite:false});
+const streaks=[];for(let i=0;i<9;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.025),streakMat.clone());reset(m,true);scene.add(m);streaks.push(m)}
+function reset(m,first){m.position.set(first?-8+Math.random()*16:-8-Math.random()*4,-2.4+Math.random()*5,-1.5-Math.random()*2);m.userData.v=3+Math.random()*2.5}
+
+/* ---- Momo ---- */
+const NEUTRAL=0xFBDA62; // Momo's own yellow from the Spline file
+const U=463;            // Spline units per scene unit (Momo is 2.3 units wide here)
+const bodyGeo=puffyStar();
+let momo=null;          // adapter: {apply(f), hit(e)}
+const rig=new THREE.Group(),spinner=new THREE.Group();rig.add(spinner);scene.add(rig);
+
+function threeMomo(){
+  const plush=new THREE.MeshPhysicalMaterial({color:NEUTRAL,roughness:.68,sheen:.6,sheenRoughness:.55,sheenColor:new THREE.Color(0xffffff)});
+  const ink=new THREE.MeshPhysicalMaterial({color:0x1b2238,roughness:.25,clearcoat:.6});
+  const phones=new THREE.MeshPhysicalMaterial({color:0xD4D6DC,roughness:.3,clearcoat:.6});
+  let eyes=[],rings=null,mouth=null;
+  new GLTFLoader().load("momo.gltf.json",g=>{
+    const star=g.scene.getObjectByName("star");if(!star){fail();return}
+    star.removeFromParent();star.position.set(0,0,0);star.rotation.set(0,0,0);star.updateMatrixWorld(true);
+    let body=null;
+    star.traverse(o=>{if(!o.isMesh)return;
+      if(o.name==="Star"){o.material=plush;body=o}else if(o.parent&&o.parent.name==="Rings")o.material=phones;else o.material=ink;
+      if(o.name.includes("Eye"))eyes.push(o);if(o.name==="Mouth")mouth=o});
+    rings=star.getObjectByName("Rings");
+    // swap the flat extrusion (z 0..43) for the puffy body, centred where the old one was
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.BufferAttribute(bodyGeo.vertices,3));
+    geo.setAttribute("normal",new THREE.BufferAttribute(bodyGeo.normals,3));
+    geo.setIndex(new THREE.BufferAttribute(bodyGeo.indices,1));
+    body.geometry=geo;body.position.add(new THREE.Vector3(0,0,21.5).applyQuaternion(body.quaternion));
+    star.updateMatrixWorld(true);
+    // lift the face so it sits on the new rounded front
+    const inv=body.matrixWorld.clone().invert();let lift=0;
+    [...eyes,mouth].forEach(f=>{const p=f.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);lift=Math.max(lift,bodyGeo.hAt(p.x,p.y)+3-p.z)});
+    const face=star.getObjectByName("Face");
+    face.position.add(new THREE.Vector3(0,0,lift).applyQuaternion(body.quaternion));
+    const h=new THREE.Group();h.add(star);const bb=new THREE.Box3().setFromObject(h),c=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3());
+    star.position.sub(c);h.scale.setScalar(2.3/Math.max(sz.x,sz.y));h.position.y=.45;spinner.add(h);
+    eyes.forEach(e=>e.userData.b=e.position.clone());if(mouth)mouth.userData.s=mouth.scale.clone();
+    window.momoReady=true;
+  },undefined,fail);
+  return{
+    ready:()=>eyes.length>0,
+    hit:ray=>ray.intersectObject(rig,true).length>0,
+    apply(f){
+      plush.color.copy(f.color);
+      rig.position.y=f.y;
+      rig.rotation.set(f.rx,f.ry0,f.rz);spinner.rotation.y=f.ry;rig.scale.set(f.sx,f.sy,1);
+      if(rings)rings.children.forEach((r,i)=>r.rotation.y=f.ring[i]);
+      eyes.forEach(e=>{e.scale.y=f.blink*f.eyeS;e.scale.x=f.eyeW;const o=e.userData.b;e.position.x=o.x+f.px*3;e.position.y=o.y-f.py*2-f.dip});
+      if(mouth)mouth.scale.x=mouth.userData.s.x*f.mouth;
+    }};
+}
+
+function splineMomo(url){
+  // Momo straight from the Spline file: its own model, lighting and blink.
+  // The flat body is swapped for the puffy one; tone colours switch between three bodies
+  // (this runtime ignores colour changes on existing meshes).
+  const holder=document.createElement("div");holder.style.cssText="position:absolute;z-index:1;touch-action:none;cursor:grab";
+  const canvas=document.createElement("canvas");canvas.style.cssText="width:100%;height:100%;display:block";canvas.setAttribute("aria-label","Momo");
+  holder.appendChild(canvas);host.appendChild(holder);
+  let app=null,ok=false,star,bodies={},shown="default",mouth,base={},up=new THREE.Vector3(),pulse=0;
+  let shift=0; // vertical nudge in Spline units (kept for fine-tuning; 0 = centred on the camera)
+  // Spline's orthographic camera spans the canvas width in CSS pixels at zoom 1, so this zoom makes
+  // the canvas show exactly the same 3.5 x 3.5 scene units as Momo's box in the sky.
+  const fit=()=>{if(!ok)return;const c=app._frameView&&app._frameView._camera;if(!c)return;
+    c.zoom=holder.clientWidth/(2*1.75*U);c.updateProjectionMatrix();app.requestRender()};
+  // Spline debounces its own resize; apply the zoom after it has settled
+  new ResizeObserver(()=>{setTimeout(fit,160);setTimeout(fit,600)}).observe(holder);
+  const arrays=g=>({vertices:Array.from(g.attributes.position.array),normals:Array.from(g.attributes.normal.array),indices:g.index?Array.from(g.index.array):Array.from({length:g.attributes.position.count},(_,i)=>i)});
+  const deg=THREE.MathUtils.radToDeg;
+  import("https://cdn.jsdelivr.net/npm/@splinetool/runtime@2.0.125/build/runtime.js").then(async({Application})=>{
+    app=new Application(canvas);await app.load(url);
+    app.setBackgroundColor("transparent");
+    star=app.findObjectByName("star");const old=app.findObjectByName("Star"),face=app.findObjectByName("Face");
+    // 1. puffy bodies, one per tone, where the flat body was
+    const bq=new THREE.Quaternion().setFromEuler(new THREE.Euler(old.rotation.x,old.rotation.y,old.rotation.z));
+    const bc=new THREE.Vector3(old.position.x,old.position.y,old.position.z).add(new THREE.Vector3(0,0,21.5).applyQuaternion(bq));
+    const B={vertices:Array.from(bodyGeo.vertices),normals:Array.from(bodyGeo.normals),indices:Array.from(bodyGeo.indices)};
+    for(const [k,col] of [["default","#FBDA62"],["soft","#FF8C3A"],["cold","#AFCB2E"]]){
+      bodies[k]=await app.createObject("CustomMesh",{name:"Momo body "+k,parent:star,...B,position:{x:bc.x,y:bc.y,z:bc.z},rotation:{x:0,y:deg(old.rotation.y),z:0},
+        material:{color:col,roughness:.7,metalness:0}});
+      if(k!=="default")bodies[k].hide()}
+    old.hide();
+    // 2. lift the face onto the rounded front
+    const n=new THREE.Vector3(0,0,1).applyQuaternion(bq);
+    const fp=new THREE.Vector3(face.position.x,face.position.y,face.position.z).sub(bc);
+    const lift=Math.max(bodyGeo.hAt(85,fp.y+28),bodyGeo.hAt(-85,fp.y+28),bodyGeo.hAt(0,fp.y))+3-fp.dot(n);
+    face.position.x+=n.x*lift;face.position.y+=n.y*lift;face.position.z+=n.z*lift;
+    // 3. dark eyes and smile (the file's are light grey, made for the robot's screen face).
+    //    The eyes go inside the Eyes group so Spline's blink still drives them.
+    const ink={color:"#1B2238",roughness:.3,metalness:0};
+    const sh=new THREE.Shape(),w=15,h=32,r=7.5;
+    sh.moveTo(-w/2+r,-h/2);sh.lineTo(w/2-r,-h/2);sh.absarc(w/2-r,-h/2+r,r,-Math.PI/2,0);sh.lineTo(w/2,h/2-r);sh.absarc(w/2-r,h/2-r,r,0,Math.PI/2);
+    sh.lineTo(-w/2+r,h/2);sh.absarc(-w/2+r,h/2-r,r,Math.PI/2,Math.PI);sh.lineTo(-w/2,-h/2+r);sh.absarc(-w/2+r,-h/2+r,r,Math.PI,Math.PI*1.5);
+    const eg=new THREE.ExtrudeGeometry(sh,{depth:2,bevelEnabled:false,curveSegments:12});eg.computeVertexNormals();
+    for(const nm of["Left Eye","Right Eye"]){const o=app.findObjectByName(nm);
+      await app.createObject("CustomMesh",{name:nm+" dark",parent:"Eyes",...arrays(eg),position:{x:o.position.x,y:o.position.y,z:o.position.z+.2},material:ink});o.hide()}
+    const m=app.findObjectByName("Mouth");
+    const rg=new THREE.RingGeometry(44.5*.87,44.5,24,1,Math.PI/2,THREE.MathUtils.degToRad(81));rg.scale(1,46/44.5,1);
+    const ps=rg.attributes.position;for(let i=0;i<ps.count;i++)ps.setZ(i,.3);rg.computeVertexNormals();
+    mouth=await app.createObject("CustomMesh",{name:"Mouth dark",parent:"Face",...arrays(rg),position:{x:m.position.x,y:m.position.y,z:m.position.z},
+      rotation:{x:deg(m.rotation.x),y:deg(m.rotation.y),z:deg(m.rotation.z)},scale:{x:m.scale.x,y:m.scale.y,z:m.scale.z},material:ink});
+    m.hide();
+    // 4. face the camera from the middle of its view
+    const c=app._frameView._camera,camQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(c.rotation.x,c.rotation.y,c.rotation.z));
+    const fwd=new THREE.Vector3(0,0,-1).applyQuaternion(camQ);up.set(0,1,0).applyQuaternion(camQ);
+    const p=new THREE.Vector3(c.position.x,c.position.y,c.position.z).addScaledVector(fwd,1500);
+    base={x:p.x,y:p.y,z:p.z,rx:c.rotation.x,ry:c.rotation.y-old.rotation.y,rz:c.rotation.z,ms:m.scale.x};
+    ok=true;fit();setTimeout(fit,300);window.momoReady=true;
+  }).catch(e=>{console.error(e);fail()});
+  return{
+    ready:()=>ok,box:holder,fit,
+    hit:()=>false,
+    apply(f){if(!ok)return;
+      if(f.tone!==shown){bodies[shown].hide();bodies[f.tone].show();shown=f.tone;pulse=1}
+      pulse=Math.max(0,pulse-.08);const pz=1+Math.sin(pulse*Math.PI)*.06;
+      const dy=f.y*U+shift;star.position.x=base.x+up.x*dy;star.position.y=base.y+up.y*dy;star.position.z=base.z+up.z*dy;
+      star.rotation.x=base.rx+f.rx;star.rotation.y=base.ry+f.ry0+f.ry;star.rotation.z=base.rz+f.rz;
+      star.scale.x=f.sx*pz;star.scale.y=f.sy/pz;
+      if(mouth)mouth.scale.x=base.ms*f.mouth;
+    }};
+}
+
+const SPLINE=window.MOMO_SPLINE||null;
+momo=SPLINE?splineMomo(SPLINE):threeMomo();
+
+/* ---- 3D clothing ---- */
+function jacket(){const g=new THREE.Group();
+  const m=new THREE.MeshPhysicalMaterial({color:0x2F5DA8,roughness:.45,clearcoat:.5,clearcoatRoughness:.4});
+  const trim=new THREE.MeshPhysicalMaterial({color:0x1F3E75,roughness:.5});
+  const zip=new THREE.MeshStandardMaterial({color:0xE9EEF6,metalness:.6,roughness:.3});
+  const torso=new THREE.Mesh(new RoundedBoxGeometry(.95,1.05,.42,4,.16),m);g.add(torso);
+  for(const s of[-1,1]){const sl=new THREE.Mesh(new THREE.CapsuleGeometry(.15,.72,6,12),m);sl.position.set(s*.6,-.02,0);sl.rotation.z=s*.32;g.add(sl);
+    const cuff=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.1,16),trim);cuff.position.set(s*.75,-.42,0);cuff.rotation.z=s*.32;g.add(cuff);
+    const pk=new THREE.Mesh(new RoundedBoxGeometry(.24,.18,.04,2,.03),trim);pk.position.set(s*.24,-.26,.215);g.add(pk)}
+  const hood=new THREE.Mesh(new THREE.TorusGeometry(.2,.07,10,24),trim);hood.position.set(0,.52,0);hood.rotation.x=Math.PI/2;hood.scale.set(1.25,1,1);g.add(hood);
+  const z=new THREE.Mesh(new THREE.BoxGeometry(.035,.98,.03),zip);z.position.set(0,-.02,.215);g.add(z);
+  const hem=new THREE.Mesh(new RoundedBoxGeometry(.97,.1,.44,2,.04),trim);hem.position.y=-.5;g.add(hem);
+  return g}
+function umbrella(){const g=new THREE.Group();
+  const a=new THREE.MeshPhysicalMaterial({color:0xE8564F,roughness:.5,clearcoat:.4,side:THREE.DoubleSide});
+  const b=new THREE.MeshPhysicalMaterial({color:0xFFF8EC,roughness:.5,clearcoat:.4,side:THREE.DoubleSide});
+  const n=8;for(let i=0;i<n;i++){const w=new THREE.Mesh(new THREE.SphereGeometry(.85,6,10,i*2*Math.PI/n,2*Math.PI/n,0,Math.PI/2),i%2?a:b);w.scale.y=.55;w.position.y=.45;g.add(w)}
+  const dark=new THREE.MeshStandardMaterial({color:0x2a2f44,roughness:.4,metalness:.3});
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,1.4,10),dark);shaft.position.y=-.2;g.add(shaft);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(.05,12,8),dark);tip.position.y=.95;g.add(tip);
+  const hd=new THREE.Mesh(new THREE.TorusGeometry(.12,.035,10,20,Math.PI),new THREE.MeshPhysicalMaterial({color:0x8a5a3a,roughness:.6}));hd.position.set(.12,-.9,0);hd.rotation.z=Math.PI;g.add(hd);
+  g.rotation.z=-.25;return g}
+const J=jacket(),UMB=umbrella();
+const wearItems=[{o:J,x:-2.05,y:-1.0,s:0,v:0,ph:0,k:.72},{o:UMB,x:2.05,y:-.75,s:0,v:0,ph:1.7,k:.72}];
+wearItems.forEach(w=>{w.o.scale.setScalar(.0001);w.o.position.set(w.x,w.y,.4);scene.add(w.o)});
+
+/* ---- Theme-aware cloud color ---- */
+function themeSync(){const c=getComputedStyle(document.documentElement).getPropertyValue("--cloud").trim()||"#ffffff";cloudMat.color.set(c);
+  const dark=c.toLowerCase()!=="#ffffff";streaks.forEach(s=>s.material.color.set(dark?0xc7cff0:0xffffff))}
+themeSync();matchMedia("(prefers-color-scheme: dark)").addEventListener("change",themeSync);
+new MutationObserver(themeSync).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+/* ---- Layout: keep Momo centred in the open sky beside the panel ---- */
+function size(){const W=host.clientWidth,H=host.clientHeight;R.setSize(W,H,false);
+  const desk=innerWidth>820;const pr=desk?panelEl.getBoundingClientRect().right:0;const vw=W-pr;
+  cam.aspect=W/H;const needW=desk?6.2:5.6,needH=desk?4.8:4.2;const t=Math.tan(THREE.MathUtils.degToRad(cam.fov/2));
+  cam.position.z=Math.max(needH/2/t,needW/2/(t*(vw/H)));
+  if(desk)cam.setViewOffset(W,H,-pr/2,H*.04,W,H);else cam.setViewOffset(W,H,0,-H*.15,W,H);
+  cam.updateProjectionMatrix();
+  if(momo&&momo.box){const v=new THREE.Vector3(),pt=(x,y)=>{v.set(x,y,0).project(cam);return[(v.x+1)/2*W,(1-v.y)/2*H]};
+    const [x0,y0]=pt(-1.75,.45+1.75),[x1,y1]=pt(1.75,.45-1.75);
+    Object.assign(momo.box.style,{left:x0+"px",top:y0+"px",width:(x1-x0)+"px",height:(y1-y0)+"px"});setTimeout(momo.fit,60)}}
+new ResizeObserver(size).observe(host);addEventListener("resize",size);size();
+
+/* ---- Interaction ---- */
+const ptr=new THREE.Vector2(),cl=v=>Math.max(-1,Math.min(1,v));
+addEventListener("pointermove",e=>{const r=host.getBoundingClientRect();const pr=innerWidth>820?panelEl.getBoundingClientRect().right:0;
+  ptr.x=cl((e.clientX-(pr+(r.width-pr)/2))/((r.width-pr)/2));ptr.y=cl((e.clientY-r.height*.45)/(r.height*.5))});
+const ray=new THREE.Raycaster();
+const poke=()=>MS.acts.push(MS.tone==="soft"?"hug":MS.tone==="cold"?"nod":"hop");
+if(momo.box)momo.box.addEventListener("pointerdown",poke);
+R.domElement.addEventListener("pointerdown",e=>{const r=R.domElement.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),cam);
+  if(momo.hit(ray)){poke();return}
+  for(const w of wearItems){if(ray.intersectObject(w.o,true).length){w.v+=.12;w.twirl=1}}});
+
+/* ---- Animation ---- */
+const TONEC={default:new THREE.Color(NEUTRAL),soft:new THREE.Color(0xFF8C3A),cold:new THREE.Color(0xAFCB2E)};
+const DUR={hop:.6,nod:.7,hug:1,spin:.9,tuck:.9,wave:1,present:.8,bow:.8,dizzy:1.4,drop:1,cheer:1.1,think:1.6,lean:.6};
+let cur=null,ct=0,eyeS=1,eyeW=1;
+const F={tone:"default",color:new THREE.Color(NEUTRAL),y:0,rx:0,ry0:0,ry:0,rz:0,sx:1,sy:1,ring:[0,0],blink:1,dip:0,eyeS:1,eyeW:1,px:0,py:0,mouth:1};
+const clock=new THREE.Clock(),ease=p=>1-Math.pow(1-p,3);
+R.setAnimationLoop(()=>{
+  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  // clouds + wind
+  for(const c of clouds){c.position.x+=c.userData.v*dt*K;if(c.position.x>11)c.position.x=-11;c.position.y+=Math.sin(t*.3+c.position.z)*.0015*K}
+  for(const s of streaks){s.position.x+=s.userData.v*dt*K;const p=(s.position.x+8)/16;s.material.opacity=Math.max(0,Math.sin(Math.PI*Math.min(Math.max(p,0),1)))*.45*K;if(s.position.x>8)reset(s)}
+  // clothes spring in/out, sway in the wind
+  for(const w of wearItems){const target=MS.clothes?1:0;w.v+=(target-w.s)*.12;w.v*=.78;w.s+=w.v;const s=Math.max(.0001,w.s*w.k);w.o.scale.setScalar(s);
+    w.o.visible=s>.01;w.o.position.y=w.y+Math.sin(t*1.3+w.ph)*.08*K;
+    w.twirl=Math.max(0,(w.twirl||0)-dt*1.2);w.o.rotation.y=Math.sin(t*.7+w.ph)*.45*K+w.twirl*Math.PI*2;
+    if(w.o===J)w.o.rotation.z=Math.sin(t*2.1)*.05*K}
+  R.render(scene,cam);
+  if(!momo.ready())return;
+  const tk=MS.preview||MS.tone;F.tone=tk;F.color.lerp(TONEC[tk],.08);
+  if(MS.acts.length&&(!cur||ct>DUR[cur]*.5)){cur=MS.acts.shift();ct=0}
+  let y=0,rx=0,ry=0,rz=0,sx=1,sy=1,ringSpin=0,eyeT=1;
+  // idle personality per tone
+  if(tk==="soft"){y=Math.sin(t*1.1)*.09;rz=Math.sin(t*.9)*.07;eyeT=.55}
+  else if(tk==="cold"){y=Math.sin(t*2.4)*.025;rx=(t%3.2<.25)?Math.sin(t%3.2/.25*Math.PI)*.12:0;eyeW+=(.85-eyeW)*.1}
+  else{y=Math.sin(t*1.6)*.06}
+  if(tk!=="cold")eyeW+=(1-eyeW)*.1;
+  y*=K;rz*=K;rx*=K;
+  if(cur){ct+=dt;const p=Math.min(ct/DUR[cur],1),s=Math.sin(p*Math.PI);
+    switch(cur){
+      case"hop":y+=s*.5;sy*=1+Math.sin(p*Math.PI*2)*.07;break;
+      case"nod":rx+=Math.sin(p*Math.PI*4)*.22*(1-p);sy*=1+s*.03;break;
+      case"hug":sx*=1+s*.14;sy*=1-s*.1;rz+=Math.sin(p*Math.PI*3)*.12*(1-p);eyeT=.4;break;
+      case"spin":ry+=ease(p)*Math.PI*2;y+=s*.15;break;
+      case"tuck":sx*=1-s*.18;sy*=1-s*.18;ringSpin=s*Math.PI;eyeT=.3+.7*(1-s);break;
+      case"wave":rz+=Math.sin(p*Math.PI*5)*.18*(1-p*.5);break;
+      case"present":y+=s*.35;ry+=Math.sin(p*Math.PI*2)*.35;break;
+      case"bow":rx+=s*.35;y-=s*.08;break;
+      case"dizzy":ry+=ease(p)*Math.PI*4;rz+=Math.sin(p*Math.PI*6)*.15*(1-p);eyeT=.2+.8*p;break;
+      case"drop":y+=(1-ease(p))*3.2+(p>.6?Math.sin((p-.6)/.4*Math.PI)*.12:0);sy*=1+(p>.55&&p<.75?-.08:0);break;
+      case"cheer":y+=Math.abs(Math.sin(p*Math.PI*2))*.35*(1-p*.3);rz+=Math.sin(p*Math.PI*2)*.1;eyeT=.45;break;
+      case"think":rz+=Math.sin(p*Math.PI*2)*.14;ry+=Math.sin(p*Math.PI)*.25;break;
+      case"lean":rz+=s*.1*(MS.preview==="soft"?1:-1);sy*=1+s*.03;break}
+    if(p>=1)cur=null}
+  F.y=y;F.rx+=((ptr.y*.16+rx)-F.rx)*.12;F.ry0+=((ptr.x*.28)-F.ry0)*.08;F.rz+=(rz-F.rz)*.15;F.ry=ry*K;F.sx=sx;F.sy=sy;
+  F.ring=[Math.sin(t*1.4)*.1*K+ringSpin,Math.sin(t*1.4+1)*.1*K+ringSpin];
+  // the Spline blink: every 2s the eyes dip and squash over 0.6s
+  const bp=t%2.0,bw=bp>1.4?(bp-1.4)/.6:0;const ba=bw<=0?0:bw<.65?Math.sin(bw/.65*Math.PI/2):Math.cos((bw-.65)/.35*Math.PI/2);
+  F.blink=1-ba*.93;F.dip=ba*12;eyeS+=(eyeT-eyeS)*.12;F.eyeS=eyeS;F.eyeW=eyeW;F.px=ptr.x;F.py=ptr.y;
+  F.mouth+=((tk==="soft"?1.35:tk==="cold"?.75:1)-F.mouth)*.1;
+  momo.apply(F);
+});
+}
+</script>
